@@ -5,13 +5,11 @@ import java.awt.Dimension;
 import java.awt.EventQueue;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.RenderingHints;
 import java.awt.Toolkit;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.awt.image.IndexColorModel;
@@ -35,6 +33,7 @@ public class Namibrot extends JPanel
     // below a particular threshold
     // OR when we start drawing over a point that was black before
     // TODO: save "high range" buffer for fast slope switching
+    // TODO: separate Namibrot from its JPanel
     
     private static final long serialVersionUID = 6327582443335433368L;
     
@@ -118,39 +117,11 @@ public class Namibrot extends JPanel
     
     public void paint(Graphics gx)
     {
-        int x = getImageX();
-        int y = getImageY();
-
         Graphics2D g2 = (Graphics2D)gx;
         theme.paintBackground(g2, this);
-        
-        AffineTransform identity = g2.getTransform();    
-        g2.translate(gui.getDragX(), gui.getDragY());
-        
-        if(antialiasing)
-        {
-            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, 
-                    RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-            g2.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION, 
-                    RenderingHints.VALUE_ALPHA_INTERPOLATION_SPEED);
-            g2.setRenderingHint(RenderingHints.KEY_RENDERING, 
-                    RenderingHints.VALUE_RENDER_SPEED);
-            g2.scale(0.5, 0.5);
-            g2.translate(getWidth() >> 1, getHeight() >> 1);
-//            g2.translate(1, 1); // blur effect
-        }
-
-        byte[] r = theme.getRed();
-        byte[] g = theme.getGreen();
-        byte[] b = theme.getBlue();
-        IndexColorModel icm = new IndexColorModel(8, 256, r, g, b); 
-
-        BufferedImage current1 = new BufferedImage(icm, front.getRaster(), true, null);
-        g2.drawImage(current1, x, y, null);
-        
-        g2.setTransform(identity);
+        theme.paintFractal(g2, this);
         theme.paintForeground(g2, this);
-        gui.paint(gx);
+        gui.paint(g2);
     }
 
     protected void draw(RenderContext context)
@@ -633,7 +604,7 @@ public class Namibrot extends JPanel
     {
         return gui;
     }
-    
+        
     public void setAntialiasing(boolean enabled)
     {
         antialiasing = enabled;
@@ -662,6 +633,11 @@ public class Namibrot extends JPanel
     public Theme getTheme()
     {
         return theme;
+    }
+    
+    public BufferedImage getImage()
+    {
+        return front;
     }
 
     public int getImageX()

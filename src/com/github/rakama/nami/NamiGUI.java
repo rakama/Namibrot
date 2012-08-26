@@ -1,7 +1,7 @@
 package com.github.rakama.nami;
 
 import java.awt.Color;
-import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
@@ -57,19 +57,19 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
         return themes;
     }
     
-    public void paint(Graphics g)
+    public void paint(Graphics2D g2)
     {   
         if(showStatusBar)
-            paintStatusBar(g);
+            paintStatusBar(g2);
     }
 
-    protected void paintStatusBar(Graphics g)
+    protected void paintStatusBar(Graphics2D g2)
     {
         int width = nami.getWidth();
         int height = nami.getHeight();
         
-        g.setColor(new Color(0, 0, 0, 128));
-        g.fillRect(0, height - 18, width, height);
+        g2.setColor(new Color(0, 0, 0, 128));
+        g2.fillRect(0, height - 18, width, height);
         
         double mag = nami.getMagnification();
 
@@ -84,15 +84,15 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
         else
             zStr = "z = 1/" + (int)(1 / (mag)) + "x";
         
-        g.setColor(Color.WHITE);
-        g.drawString(xStr, 4, height - 4);
-        g.drawString(yStr, 163, height - 4);
-        g.drawString(zStr, 322, height - 4);
+        g2.setColor(Color.WHITE);
+        g2.drawString(xStr, 4, height - 4);
+        g2.drawString(yStr, 163, height - 4);
+        g2.drawString(zStr, 322, height - 4);
         
         if(nami.getRenderManager().isRendering())
         {
            String str = "Rendering";
-           int w = g.getFontMetrics().stringWidth(str + "...");
+           int w = g2.getFontMetrics().stringWidth(str + "...");
            
            long delta = System.currentTimeMillis() % 2000;
            
@@ -104,7 +104,7 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
                str += ".";
                
            if(400 + w < width)
-               g.drawString(str, width - w - 5, height - 4);            
+               g2.drawString(str, width - w - 5, height - 4);            
         }
     }
     

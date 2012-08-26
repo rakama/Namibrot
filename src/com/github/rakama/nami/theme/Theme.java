@@ -2,6 +2,10 @@ package com.github.rakama.nami.theme;
 
 import java.awt.Color;
 import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.geom.AffineTransform;
+import java.awt.image.BufferedImage;
+import java.awt.image.IndexColorModel;
 import java.util.Arrays;
 
 import com.github.rakama.nami.Namibrot;
@@ -110,13 +114,36 @@ public abstract class Theme
     public abstract boolean hasDithering();
     public abstract boolean hasAlpha();
     
-    public void paintBackground(Graphics2D g, Namibrot nami)
+    public void paintBackground(Graphics2D g2, Namibrot nami)
     {
-        g.setColor(Color.BLACK);
-        g.fillRect(0, 0, nami.getWidth(), nami.getHeight());        
+        g2.setColor(Color.BLACK);
+        g2.fillRect(0, 0, nami.getWidth(), nami.getHeight());        
     }
 
-    public void paintForeground(Graphics2D g, Namibrot nami)
+    public void paintFractal(Graphics2D g2, Namibrot nami)
+    {
+        AffineTransform identity = g2.getTransform();    
+        g2.translate(nami.getGUI().getDragX(), nami.getGUI().getDragY());
+        
+        if(nami.getAntialiasing())
+        {
+            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, 
+                    RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g2.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION, 
+                    RenderingHints.VALUE_ALPHA_INTERPOLATION_SPEED);
+            g2.setRenderingHint(RenderingHints.KEY_RENDERING, 
+                    RenderingHints.VALUE_RENDER_SPEED);
+            g2.scale(0.5, 0.5);
+            g2.translate(nami.getWidth() >> 1, nami.getHeight() >> 1);
+        }
+
+        IndexColorModel icm = new IndexColorModel(8, 256, r, g, b);
+        BufferedImage current1 = new BufferedImage(icm, nami.getImage().getRaster(), true, null);
+        g2.drawImage(current1, nami.getImageX(), nami.getImageY(), null);        
+        g2.setTransform(identity);
+    }
+    
+    public void paintForeground(Graphics2D g2, Namibrot nami)
     {
         
     }
