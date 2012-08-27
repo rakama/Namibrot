@@ -19,7 +19,7 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
     int themeid;
 
     long lastTranslate, dragTime = 200;    
-    boolean dragging, showStatusBar;
+    boolean showStatusBar;
     int prevMouseX, prevMouseY;
     int dragX, dragY, dragDeltaX, dragDeltaY;
     int xZoom, yZoom, magZoom;
@@ -130,9 +130,12 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
 
     public void clearZoom()
     {
-        xZoom = 0;
-        yZoom = 0;
-        magZoom = 0;
+        synchronized(nami)
+        {
+            xZoom = 0;
+            yZoom = 0;
+            magZoom = 0;
+        }
     }
     
     public boolean update(long milliseconds)
@@ -167,7 +170,6 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
     {
         dragX = 0;
         dragY = 0;
-        dragging = false;
     }
 
     public void zoomCamera(int mag)
@@ -224,8 +226,8 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
         if(x == 0 && y == 0)
             return;
             
-        synchronized(nami)
-        {
+//        synchronized(nami)
+//        {
             dragX += x;
             dragY += y;
             
@@ -234,8 +236,8 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
                 return;
             
             lastTranslate = curtime;        
-            nami.interrupt();  // TODO: some race condition here
-        }
+            nami.interrupt();
+//        }
     }
     
     public void mouseWheelMoved(MouseWheelEvent e)
@@ -247,32 +249,22 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
     
     public void mouseDragged(MouseEvent e)
     {
-        if(!dragging)
-        {
-            prevMouseX = e.getX();
-            prevMouseY = e.getY();
-            dragging = true;
-        }
-        else
-        {
-            dragCamera(e.getX() - prevMouseX,
-                       e.getY() - prevMouseY);
-            
-            prevMouseX = e.getX();
-            prevMouseY = e.getY();
-        }
+        dragCamera(e.getX() - prevMouseX,
+                   e.getY() - prevMouseY);
+        
+        prevMouseX = e.getX();
+        prevMouseY = e.getY();
     }
 
     public void mouseMoved(MouseEvent e)
     {
-        // stuff
     }
     
     public void mouseExited(MouseEvent e)
     {
         synchronized(nami)
         {
-            if(dragging)
+            if(isDragging())
                 nami.interrupt();
         }
     }
@@ -281,7 +273,7 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
     {
         synchronized(nami)
         {
-            if(dragging)
+            if(isDragging())
                 nami.interrupt();
         }
     }    
@@ -294,13 +286,15 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
     {
         synchronized(nami)
         {
-            if(dragging)
+            if(isDragging())
                 nami.interrupt();
         }
     }
 
     public void mousePressed(MouseEvent e)
     {
+        prevMouseX = e.getX();
+        prevMouseY = e.getY();
     }
 
     public void keyPressed(KeyEvent e)
