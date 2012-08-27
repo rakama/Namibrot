@@ -15,8 +15,10 @@ import java.awt.image.DataBufferByte;
 import java.awt.image.IndexColorModel;
 import java.util.Arrays;
 
+import javax.swing.JApplet;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
+import javax.swing.RootPaneContainer;
 
 import com.github.rakama.nami.fractal.Fractal;
 import com.github.rakama.nami.theme.Autumn;
@@ -27,6 +29,7 @@ import com.github.rakama.nami.theme.Zebra;
 import com.github.rakama.nami.util.CircularBufferDouble;
 import com.github.rakama.nami.util.CircularBufferInt;
 
+@SuppressWarnings("serial")
 public class Namibrot extends JPanel
 {
     // TODO: do "fill with black" if # of updated pixels per cycle drops
@@ -34,8 +37,6 @@ public class Namibrot extends JPanel
     // OR when we start drawing over a point that was black before
     // TODO: save "high range" buffer for fast slope switching
     // TODO: separate Namibrot from its JPanel
-    
-    private static final long serialVersionUID = 6327582443335433368L;
     
     int zoom, width, height, resizeWidth, resizeHeight, maxIter, fastIter;
     double zoomRatio, xOffset, yOffset, xRatio;
@@ -57,17 +58,17 @@ public class Namibrot extends JPanel
         final JFrame frame = new JFrame("Namibrot");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         
-        final Namibrot mandel = new Namibrot(frame, width, height);
-        frame.getContentPane().add(mandel);
+        final Namibrot nami = new Namibrot(frame, width, height);
+        frame.getContentPane().add(nami);
 
         frame.setSize(width, height);
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
         frame.addComponentListener(new ComponentAdapter() {
             public void componentResized(ComponentEvent e) {
-                mandel.requestResize(frame.getWidth(), frame.getHeight());}});
+                nami.requestResize(frame.getWidth(), frame.getHeight());}});
         
-        mandel.init();
+        nami.init();
     }
 
     public Namibrot(int w, int h)
@@ -78,6 +79,8 @@ public class Namibrot extends JPanel
     public Namibrot(Component parent, int w, int h)
     {  
         this.parent = parent;
+
+        setFocusable(true);
         
         gui = new NamiGUI(this);
         manager = new ThreadManager(this);
@@ -87,7 +90,7 @@ public class Namibrot extends JPanel
         gui.addTheme(new Autumn());
         gui.addTheme(new Zebra());
         
-        if(manager.getNumThreads() == 1)
+        if(manager.getNumThreads() == 1 || (parent instanceof JApplet))
             antialiasing = false;
         else
             antialiasing = true;
@@ -99,20 +102,34 @@ public class Namibrot extends JPanel
         fastIter = 1 << 10;
         
         requestResize(w, h);
-        applyResize();      
-    }    
+        applyResize();        
+    } 
     
     protected void init()
     {
-        addMouseWheelListener(gui); 
-        addMouseMotionListener(gui);   
-        addMouseListener(gui);   
-        
-        if(parent != null)
-            parent.addKeyListener(gui);   
-
         manager.startRepaintLoop();
         manager.startDrawLoop();
+        
+        addMouseWheelListener(gui); 
+        addMouseMotionListener(gui);   
+        addMouseListener(gui);
+        addKeyListener(gui);
+        
+        if(parent != null)
+            parent.addKeyListener(gui);
+    }
+    
+    protected void stop()
+    {
+        manager.stop();
+
+        removeMouseWheelListener(gui); 
+        removeMouseMotionListener(gui);   
+        removeMouseListener(gui);
+        removeKeyListener(gui);
+        
+        if(parent != null)
+            parent.removeKeyListener(gui);
     }
     
     public void paint(Graphics gx)
@@ -368,27 +385,86 @@ public class Namibrot extends JPanel
     {        
         if(!gui.isZooming())
             return false;
-
-        // TODO: figure it out
-        double scale = 1;        
-        if(antialiasing)
-            scale = 1;
         
-        double x = gui.getZoomX() * scale;
-        double y = gui.getZoomY() * scale;
+        double x = gui.getZoomX();
+        double y = gui.getZoomY();
         double z = gui.getZoomMagnitude();
+        int dest_x, dest_y;
+        double zscale;
         
-        xOffset += zoomRatio * 3 * xRatio * (x / width - 0.5);
-        yOffset += zoomRatio * 3 * (y / height - 0.5);
+        // TODO: needs cleanup
         
-        zoom += z;
-        zoomRatio = Math.pow(2, -zoom);
+        if(z > 0)
+        {
+            if(antialiasing)
+            {
+                xOffset += zoomRatio * 3 * xRatio * (x / width - 0.5);
+                yOffset += zoomRatio * 3 * (y / height - 0.5);
+            }
+            else
+            {
+                xOffset += (zoomRatio * 3 * xRatio * (x / width - 0.5)) / 2;
+                yOffset += (zoomRatio * 3 * (y / height - 0.5)) / 2;
+            }
+            
+            zoom += z;
+            zoomRatio = Math.pow(2, -zoom);        
+            zscale = Math.pow(2, -z);
+            
+            if(antialiasing)
+            {
+                dest_x = (int)(x - width * zscale / 2);
+                dest_y = (int)(y - height * zscale / 2);
+            }
+            else                
+            {
+                dest_x = (int)(x * zscale);
+                dest_y = (int)(y * zscale);
+            }
+        }
+        else
+        {
+            zoom += z;
+            zoomRatio = Math.pow(2, -zoom);        
+            zscale = Math.pow(2, -z);
+
+            if(antialiasing)
+            {
+                xOffset -= zoomRatio * 3 * xRatio * (x / width - 0.5);
+                yOffset -= zoomRatio * 3 * (y / height - 0.5);     
+            }
+            else
+            {
+                xOffset -= (zoomRatio * 3 * xRatio * (x / width - 0.5)) / 2;
+                yOffset -= (zoomRatio * 3 * (y / height - 0.5)) / 2;    
+            }
+            
+            if(antialiasing)
+            {
+                double fx = x - (width / 2) / zscale;
+                double fy = y - (height / 2) / zscale;
+
+                double to_x = (fx * zscale) - fx;
+                double to_y = (fy * zscale) - fy;
+
+                dest_x = -(int)(to_x * zscale);
+                dest_y = -(int)(to_y * zscale);
+            }
+            else
+            {
+                double fx = x - (width / 2) / zscale;
+                double fy = y - (height / 2) / zscale;
+
+                double to_x = (fx * zscale) - fx;
+                double to_y = (fy * zscale) - fy;
+
+                dest_x = -((((int)(to_x * zscale) - (width/2)) / 2) + (width/2));
+                dest_y = -((((int)(to_y * zscale) - (height/2)) / 2) + (height/2));
+            }
+        }
         
-        double zscale = Math.pow(2, -z);
         int dest_w = (int)(width / zscale);
         int dest_h = (int)(height / zscale);
-        int dest_x = (int)(x - width * zscale / 2);
-        int dest_y = (int)(y - height * zscale / 2);
         
         final boolean[] bfront = cached;
         final boolean[] bback = mask;      
@@ -672,9 +748,12 @@ public class Namibrot extends JPanel
 
         if(enabled && !isFullscreen())
         {
-            JFrame pframe = (JFrame)parent;
-            pframe.getContentPane().removeAll();
-            pframe.setVisible(false);
+            if(parent instanceof RootPaneContainer)
+            {
+                RootPaneContainer pframe = (RootPaneContainer)parent;
+                pframe.getContentPane().removeAll();
+                parent.setVisible(false);
+            }
             
             fullscreen = new JFrame();
             fullscreen.getContentPane().add(this);
@@ -704,15 +783,14 @@ public class Namibrot extends JPanel
             fullscreen.removeKeyListener(gui);
             fullscreen = null;
             
-            JFrame pframe = (JFrame)parent;
+            RootPaneContainer pframe = (RootPaneContainer)parent;
             pframe.getContentPane().add(this);
-            pframe.setVisible(true);
-            pframe.setState(JFrame.NORMAL);
+            parent.setVisible(true);
             
             EventQueue.invokeLater(new Runnable() {
                 public void run() {((JFrame)parent).toFront();}});
             
-            requestResize(pframe.getWidth(), pframe.getHeight());
+            requestResize(parent.getWidth(), parent.getHeight());
         }
     }
     
@@ -739,6 +817,14 @@ public class Namibrot extends JPanel
         return isInterrupted;
     }
 
+    public void forceRefresh()
+    {
+        resizeWidth = getWidth();
+        resizeHeight = getHeight();
+        sizeChanged = true;
+        isInterrupted = true;
+    }
+    
     public void interrupt()
     {
         isInterrupted = true;

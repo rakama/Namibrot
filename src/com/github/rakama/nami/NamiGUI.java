@@ -73,8 +73,8 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
         
         double mag = nami.getMagnification();
 
-        String xStr = "r = " + Double.toString(nami.getCenterX());
-        String yStr = "i = " + Double.toString(nami.getCenterY());
+        String xStr = "r = " + Float.toString((float)nami.getCenterX());
+        String yStr = "i = " + Float.toString((float)nami.getCenterY());
         String zStr;
         
         if(mag > 1 << 13)
@@ -86,8 +86,8 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
         
         g2.setColor(Color.WHITE);
         g2.drawString(xStr, 4, height - 4);
-        g2.drawString(yStr, 163, height - 4);
-        g2.drawString(zStr, 322, height - 4);
+        g2.drawString(yStr, 154, height - 4);
+        g2.drawString(zStr, 304, height - 4);
         
         if(nami.getRenderManager().isRendering())
         {
@@ -103,7 +103,7 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
            else if(delta > 500)
                str += ".";
                
-           if(400 + w < width)
+           if(340 + w < width)
                g2.drawString(str, width - w - 5, height - 4);            
         }
     }
@@ -177,6 +177,8 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
     
     public void zoomCamera(int mag, int x, int y)
     {
+        // TODO: generalize for |mag| > 1
+        
         if(mag == 0)
             return;
         
@@ -190,7 +192,7 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
         {
             xZoom = x + (nami.getImageWidth() >> 1);
             yZoom = y + (nami.getImageHeight() >> 1);
-            magZoom += mag;
+            magZoom = (int)Math.signum(mag);
             nami.interrupt();
         }
     }

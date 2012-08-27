@@ -2,7 +2,7 @@ package com.github.rakama.nami;
 
 public class ThreadManager
 {
-    Namibrot nami;    
+    Namibrot nami;
     RenderContext[] context;
     RepaintLoop repaint;
     DrawLoop draw;
@@ -58,14 +58,31 @@ public class ThreadManager
         }
     }
     
+    public synchronized void stop()
+    {
+        if(draw != null)
+            draw.interrupt();
+        
+        if(repaint != null)
+            repaint.interrupt();
+        
+        if(nami != null)
+            nami.interrupt();
+                
+        draw = null;
+        repaint = null;
+    }
+    
     class RepaintLoop implements Runnable
     {        
+        boolean interrupt;
+        
         public void run()
         {
             long prevPaint = System.currentTimeMillis();
             int repaintTime = 30;
             
-            while(true)
+            while(!interrupt)
             {
                 long time = System.currentTimeMillis();
                 
@@ -85,12 +102,19 @@ public class ThreadManager
                 sleep(5);
             }
         }
+        
+        public void interrupt()
+        {
+            interrupt = true;
+        }
     }
     
     class DrawLoop implements Runnable
     {
         private int prevThreadNum;
         private int prevMaxSize;
+
+        boolean interrupt;
         
         public DrawLoop()
         {
@@ -100,7 +124,7 @@ public class ThreadManager
         
         public void run()
         {
-            while(true)
+            while(!interrupt)
             {                
                 if(numThreads <= 1)
                 {
@@ -153,6 +177,11 @@ public class ThreadManager
             }
         }
         
+        public void interrupt()
+        {
+            interrupt = true;
+        }
+        
         private boolean isModified()
         {
             boolean modified = false;
@@ -176,7 +205,7 @@ public class ThreadManager
         }
         
         private void thread2()
-        {
+        {            
             initThreads(2);
             DrawTask[] task = new DrawTask[2];
             task[0] = new DrawTask(context[0], 2, 1, 0, 0, 1, 0);
