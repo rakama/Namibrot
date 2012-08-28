@@ -51,20 +51,8 @@ public class Rainbow extends Theme
             g[j] = 0;
             b[j] = (byte)Math.round(255 * ((42 - i) / 42.0));
         }
-    }
-    
-    public double getSpeed()
-    {
-        return -2;
-    }
-    
-    public boolean hasDithering()
-    {
-        return true;
-    }
-    
-    public boolean hasAlpha()
-    {
-        return false;
-    }
+        
+        setSpeed(-2);
+        setDithering(true);
+    }    
 }

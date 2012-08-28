@@ -12,20 +12,7 @@ public class Autumn extends Theme
             g[i] = (byte)(Math.abs(128 - ((i + 32) % 256)) * 1.9);  
             b[i] = (byte)(Math.abs(128 - ((i + 64) % 256)) * 1.9);
         }
-    }
-    
-    public double getSpeed()
-    {
-        return 2;
-    }
-    
-    public boolean hasDithering()
-    {
-        return true;
-    }
-    
-    public boolean hasAlpha()
-    {
-        return false;
+        
+        setSpeed(2);
     }
 }

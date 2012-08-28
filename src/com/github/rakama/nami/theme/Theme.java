@@ -15,7 +15,8 @@ public abstract class Theme
 {
     protected byte[] r, g, b, a;
     private double updateRemaining;
-    private double multiplier, normalizer;
+    private double multiplier, normalizer, invNormalizer, speed;
+    private boolean alpha, dithering;
         
     public Theme()
     {
@@ -33,10 +34,11 @@ public abstract class Theme
         g[0] = 0;
         b[0] = 0;
         a[0] = 0;
-
-        multiplier = getMultiplier();
-        normalizer = Math.max(0, Math.min(1, getNormalizer()));
-        normalizer = 1 / (1 - normalizer);
+        
+        setSpeed(1);
+        setMultiplier(1);
+        setNormalizer(0);
+        setDithering(true);
     }
 
     public void onActivate(Namibrot nami)
@@ -53,7 +55,6 @@ public abstract class Theme
     {
         boolean updated = false;
         updateRemaining += milliseconds;
-        double speed = getSpeed();
         
         if(speed == 0)
             return false;
@@ -110,9 +111,57 @@ public abstract class Theme
         a[255] = atemp;
     }
     
-    public abstract double getSpeed();
-    public abstract boolean hasDithering();
-    public abstract boolean hasAlpha();
+    public void setDithering(boolean enabled)
+    {
+        dithering = enabled;
+    }
+    
+    public boolean hasDithering()
+    {
+        return dithering;
+    }
+
+    public void setAlpha(boolean enabled)
+    {
+        alpha = enabled;
+    }
+
+    public boolean hasAlpha()
+    {
+        return alpha;
+    }
+    
+    public void setSpeed(double val)
+    {
+        speed = val;
+    }
+    
+    public double getSpeed()
+    {
+        return speed;
+    }
+
+    public void setMultiplier(double val)
+    {
+        multiplier = val;
+    }
+    
+    public double getMultiplier()
+    {
+        return multiplier;
+    }
+
+    public void setNormalizer(double val)
+    {
+        normalizer = val;
+        invNormalizer = Math.max(0, Math.min(1, getNormalizer()));
+        invNormalizer = 1 / (1 - invNormalizer);
+    }
+    
+    public double getNormalizer()
+    {
+        return normalizer;
+    }
     
     public void paintBackground(Graphics2D g2, Namibrot nami)
     {
@@ -148,22 +197,17 @@ public abstract class Theme
         
     }
     
-    public double getMultiplier()
-    {
-        return 1;
-    }
-    
-    public double getNormalizer()
-    {
-        return 0;
-    }
-    
     public int getColor(Fractal fractal)
     {              
         double val = getNormalizedValue(fractal);      
-        double cfloat = Math.abs((val * multiplier) % 1) * 255;        
+        return getColorFromValue(Math.abs((val * multiplier) % 1));        
+    }
+    
+    protected final int getColorFromValue(double val)
+    {        
+        double cfloat = val * 255;        
         int color = (int)Math.floor(cfloat);        
-        if(hasDithering() && cfloat - color > Math.random())
+        if(dithering && cfloat - color > Math.random())
             color = (color + 1) % 255;   
         if(multiplier > 0)
             return color + 1;
@@ -174,9 +218,9 @@ public abstract class Theme
     private final double getNormalizedValue(Fractal fractal)
     {
         double val = fractal.getIterations() + fractal.getSmooth();
-        return Math.log(val) / normalizer;
+        return Math.log(val) / invNormalizer;
     }
-       
+    
     public byte[] getRed()
     {
         return r;
@@ -195,5 +239,10 @@ public abstract class Theme
     public byte[] getAlpha()
     {
         return a;
+    }
+    
+    public String getName()
+    {
+        return this.getClass().getName();
     }
 }

@@ -172,7 +172,7 @@ public class ThreadManager
                 
                 while(isRendering())
                     sleep(5);
-                
+
                 nami.resume();                
             }
         }
@@ -423,7 +423,7 @@ public class ThreadManager
             return new DrawTask(context, skipx, skipy, offx, offy, scale*2, thread, nami.fastIter);
         }        
     }
-
+    
     private void sleep(long ms)
     {
         try

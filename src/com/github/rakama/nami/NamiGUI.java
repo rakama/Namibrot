@@ -12,7 +12,6 @@ import java.awt.event.MouseMotionListener;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 
-import javax.swing.JApplet;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 
@@ -72,7 +71,7 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
         
         for(Theme t : themes)
         {
-            String name = t.getClass().getName().toLowerCase();
+            String name = t.getName().toLowerCase();
             String[] split = name.split("\\.");
             if(split[split.length-1].equals(theme))
                 return t;
@@ -293,7 +292,6 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
     
     public void mouseExited(MouseEvent e)
     {
-
     }
 
     public void mouseReleased(MouseEvent e)

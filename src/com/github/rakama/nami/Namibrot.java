@@ -22,10 +22,10 @@ import javax.swing.RootPaneContainer;
 
 import com.github.rakama.nami.fractal.Fractal;
 import com.github.rakama.nami.theme.Autumn;
+import com.github.rakama.nami.theme.Bars;
 import com.github.rakama.nami.theme.Bubblegum;
-import com.github.rakama.nami.theme.Rainbow;
+import com.github.rakama.nami.theme.Spots;
 import com.github.rakama.nami.theme.Theme;
-import com.github.rakama.nami.theme.Zebra;
 import com.github.rakama.nami.util.CircularBufferDouble;
 import com.github.rakama.nami.util.CircularBufferInt;
 
@@ -85,10 +85,10 @@ public class Namibrot extends JPanel
         gui = new NamiGUI(this);
         manager = new ThreadManager(this);
 
-        gui.addTheme(new Rainbow());
         gui.addTheme(new Bubblegum());
+        gui.addTheme(new Spots());
+        gui.addTheme(new Bars());
         gui.addTheme(new Autumn());
-        gui.addTheme(new Zebra());
         
         if(manager.getNumThreads() == 1 || (parent instanceof JApplet))
             antialiasing = false;
@@ -97,7 +97,7 @@ public class Namibrot extends JPanel
 
         zoomRatio = 1;
         rOffset = -0.75;
-        theme = gui.getThemes()[1];
+        theme = gui.getThemes()[0];
         maxIter = 1 << 17;
         fastIter = 1 << 10;
         
@@ -258,9 +258,9 @@ public class Namibrot extends JPanel
                     int iteration;
                     
                     if(hasPartial)
-                        iteration = fractal.getValue(r0, i0, xz, yz, previter, iter);
+                        iteration = fractal.getValueOpt(r0, i0, xz, yz, previter, iter);
                     else
-                        iteration = fractal.getValue(xz, yz, iter);
+                        iteration = fractal.getValueOpt(0, 0, xz, yz, 0, iter);
                     
                     if(iteration >= iter && iter < maxIter)
                     {

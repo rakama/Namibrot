@@ -38,7 +38,7 @@ public class NamiApplet extends JApplet
         Theme t = nami.getGUI().getTheme(getParameter("t"));
         url = getParameter("url");
         if(url != null)
-            url = url.split("\\?")[0];
+            url = url.split("[\\?\\#]+")[0];
 
         if(!Double.isNaN(r))
             nami.setReal(r);

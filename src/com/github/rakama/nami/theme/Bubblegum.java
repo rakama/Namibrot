@@ -37,6 +37,10 @@ public class Bubblegum extends Theme
         }
         
         r[0] = g[0] = b[0] = 0;
+        
+        setSpeed(1);
+        setNormalizer(0.5);
+        setDithering(false);
     }
     
     protected void cycleColors()
@@ -104,25 +108,5 @@ public class Bubblegum extends Theme
             g[j] = (byte)gFloat[k>>4];
             b[j] = (byte)bFloat[k>>4];
         }
-    }
-    
-    public double getSpeed()
-    {
-        return 1;
-    }
-
-    public boolean hasDithering()
-    {
-        return false;
-    }
-    
-    public boolean hasAlpha()
-    {
-        return false;
-    }
-
-    public double getNormalizer()
-    {
-        return 0.5;
     }
 }
