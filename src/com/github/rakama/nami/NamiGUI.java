@@ -2,6 +2,8 @@ package com.github.rakama.nami;
 
 import java.awt.Color;
 import java.awt.Graphics2D;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
@@ -10,6 +12,10 @@ import java.awt.event.MouseMotionListener;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 
+import javax.swing.JApplet;
+import javax.swing.JMenuItem;
+import javax.swing.JPopupMenu;
+
 import com.github.rakama.nami.theme.Theme;
 
 public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelListener, KeyListener
@@ -17,7 +23,7 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
     Namibrot nami;    
     Theme[] themes;
     int themeid;
-
+    
     long lastTranslate, dragTime = 200;    
     boolean showStatusBar;
     int prevMouseX, prevMouseY;
@@ -25,7 +31,7 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
     int xZoom, yZoom, magZoom;
     int maxZoom, minZoom;
     double minX, minY, maxX, maxY;
-    double updateRemaining;    
+    double updateRemaining;
     
     public NamiGUI(Namibrot nami)
     {
@@ -38,8 +44,8 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
         maxX = 4;
         maxY = 3;
         
-        showStatusBar = true;        
-        themes = new Theme[0];
+        showStatusBar = true;
+        themes = new Theme[0];        
     }
     
     public int addTheme(Theme theme)
@@ -55,6 +61,24 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
     public Theme[] getThemes()
     {
         return themes;
+    }
+    
+    public Theme getTheme(String theme)
+    {
+        if(theme == null || theme.isEmpty())
+            return null;
+        
+        theme = theme.toLowerCase();
+        
+        for(Theme t : themes)
+        {
+            String name = t.getClass().getName().toLowerCase();
+            String[] split = name.split("\\.");
+            if(split[split.length-1].equals(theme))
+                return t;
+        }
+        
+        return null;
     }
     
     public void paint(Graphics2D g2)
@@ -73,8 +97,8 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
         
         double mag = nami.getMagnification();
 
-        String xStr = "r = " + Float.toString((float)nami.getCenterX());
-        String yStr = "i = " + Float.toString((float)nami.getCenterY());
+        String xStr = "r = " + Float.toString((float)nami.getReal());
+        String yStr = "i = " + Float.toString((float)nami.getImaginary());
         String zStr;
         
         if(mag > 1 << 13)
@@ -226,8 +250,8 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
         if(x == 0 && y == 0)
             return;
             
-//        synchronized(nami)
-//        {
+        synchronized(nami)
+        {
             dragX += x;
             dragY += y;
             
@@ -235,9 +259,11 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
             if(curtime - lastTranslate < dragTime)
                 return;
             
-            lastTranslate = curtime;        
-            nami.interrupt();
-//        }
+            lastTranslate = curtime;   
+            
+            if(isDragging())
+                nami.interrupt();
+        }
     }
     
     public void mouseWheelMoved(MouseWheelEvent e)
@@ -246,9 +272,14 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
                    e.getX() - (nami.getWidth() >> 1),
                    e.getY() - (nami.getHeight() >> 1));
     }
+
+    boolean button1, button2;
     
     public void mouseDragged(MouseEvent e)
     {
+        if(!(button1 || button2))
+            return;
+        
         dragCamera(e.getX() - prevMouseX,
                    e.getY() - prevMouseY);
         
@@ -262,15 +293,16 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
     
     public void mouseExited(MouseEvent e)
     {
-        synchronized(nami)
-        {
-            if(isDragging())
-                nami.interrupt();
-        }
+
     }
 
     public void mouseReleased(MouseEvent e)
     {
+        if(e.getButton() == MouseEvent.BUTTON1)
+            button1 = false;
+        else if(e.getButton() == MouseEvent.BUTTON2)
+            button2 = false;
+        
         synchronized(nami)
         {
             if(isDragging())
@@ -280,10 +312,6 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
     
     public void mouseClicked(MouseEvent e)
     {
-    }
-
-    public void mouseEntered(MouseEvent e)
-    {
         synchronized(nami)
         {
             if(isDragging())
@@ -291,10 +319,28 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
         }
     }
 
+    public void mouseEntered(MouseEvent e)
+    {
+    }
+
     public void mousePressed(MouseEvent e)
     {
-        prevMouseX = e.getX();
-        prevMouseY = e.getY();
+        if(e.getButton() == MouseEvent.BUTTON1)
+        {            
+            prevMouseX = e.getX();
+            prevMouseY = e.getY();
+            button1 = true;
+        }
+        else if(e.getButton() == MouseEvent.BUTTON2)
+        {            
+            prevMouseX = e.getX();
+            prevMouseY = e.getY();
+            button2 = true;
+        }
+        else if(e.getButton() == MouseEvent.BUTTON3)
+        {
+            doPopup(e);
+        }
     }
 
     public void keyPressed(KeyEvent e)
@@ -405,5 +451,25 @@ public class NamiGUI implements MouseMotionListener, MouseListener, MouseWheelLi
 
     public void keyTyped(KeyEvent e)
     {
+    }
+
+    private void doPopup(MouseEvent e)
+    {
+        if(!(nami.getParentComponent() instanceof NamiApplet))
+            return;
+        
+        final NamiApplet applet = ((NamiApplet)nami.getParentComponent());        
+        if(!applet.hasURL())
+            return;
+        
+        @SuppressWarnings("serial")
+        JPopupMenu menu = new JPopupMenu(){{
+                JMenuItem copy = new JMenuItem("Copy URL To Clipboard");
+                add(copy);
+                copy.addActionListener(new ActionListener(){
+                    public void actionPerformed(ActionEvent e){
+                        applet.copyURLToClipboard();}});}};
+        
+        menu.show(e.getComponent(), e.getX(), e.getY());
     }
 }

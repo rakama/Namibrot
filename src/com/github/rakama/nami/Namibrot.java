@@ -39,7 +39,7 @@ public class Namibrot extends JPanel
     // TODO: separate Namibrot from its JPanel
     
     int zoom, width, height, resizeWidth, resizeHeight, maxIter, fastIter;
-    double zoomRatio, xOffset, yOffset, xRatio;
+    double zoomRatio, rOffset, iOffset, xRatio;
     private boolean antialiasing, isInterrupted, sizeChanged, themeChanged;    
     BufferedImage front, back;
     boolean[] mask, cached;
@@ -96,7 +96,7 @@ public class Namibrot extends JPanel
             antialiasing = true;
 
         zoomRatio = 1;
-        xOffset = -0.75;
+        rOffset = -0.75;
         theme = gui.getThemes()[1];
         maxIter = 1 << 17;
         fastIter = 1 << 10;
@@ -115,7 +115,7 @@ public class Namibrot extends JPanel
         addMouseListener(gui);
         addKeyListener(gui);
         
-        if(parent != null)
+        if(parent != null && parent instanceof JFrame)
             parent.addKeyListener(gui);
     }
     
@@ -130,6 +130,11 @@ public class Namibrot extends JPanel
         
         if(parent != null)
             parent.removeKeyListener(gui);
+    }
+    
+    public Component getParentComponent()
+    {
+        return parent;
     }
     
     public void paint(Graphics gx)
@@ -155,7 +160,7 @@ public class Namibrot extends JPanel
     protected void draw(RenderContext context, int x0, int y0, int w0, int h0, int skipx, int skipy, 
                      int offx, int offy, int scale, int t, int bail)
     {
-        if(context == null)
+        if(context == null || context.rendering)
             return;
         
         context.rendering = true;
@@ -232,8 +237,8 @@ public class Namibrot extends JPanel
                 
                 final int x = index % width;
                 final int y = index / width;
-                final double xz = zoomRatio * 3 * xRatio * (x / (double)width - 0.5) + xOffset;
-                final double yz = zoomRatio * 3 * (y / (double)height - 0.5) + yOffset;
+                final double xz = zoomRatio * 3 * xRatio * (x / (double)width - 0.5) + rOffset;
+                final double yz = zoomRatio * 3 * (y / (double)height - 0.5) + iOffset;
                 
                 double r0, i0;
                 if(hasPartial)
@@ -398,13 +403,13 @@ public class Namibrot extends JPanel
         {
             if(antialiasing)
             {
-                xOffset += zoomRatio * 3 * xRatio * (x / width - 0.5);
-                yOffset += zoomRatio * 3 * (y / height - 0.5);
+                rOffset += zoomRatio * 3 * xRatio * (x / width - 0.5);
+                iOffset += zoomRatio * 3 * (y / height - 0.5);
             }
             else
             {
-                xOffset += (zoomRatio * 3 * xRatio * (x / width - 0.5)) / 2;
-                yOffset += (zoomRatio * 3 * (y / height - 0.5)) / 2;
+                rOffset += (zoomRatio * 3 * xRatio * (x / width - 0.5)) / 2;
+                iOffset += (zoomRatio * 3 * (y / height - 0.5)) / 2;
             }
             
             zoom += z;
@@ -430,13 +435,13 @@ public class Namibrot extends JPanel
 
             if(antialiasing)
             {
-                xOffset -= zoomRatio * 3 * xRatio * (x / width - 0.5);
-                yOffset -= zoomRatio * 3 * (y / height - 0.5);     
+                rOffset -= zoomRatio * 3 * xRatio * (x / width - 0.5);
+                iOffset -= zoomRatio * 3 * (y / height - 0.5);     
             }
             else
             {
-                xOffset -= (zoomRatio * 3 * xRatio * (x / width - 0.5)) / 2;
-                yOffset -= (zoomRatio * 3 * (y / height - 0.5)) / 2;    
+                rOffset -= (zoomRatio * 3 * xRatio * (x / width - 0.5)) / 2;
+                iOffset -= (zoomRatio * 3 * (y / height - 0.5)) / 2;    
             }
             
             if(antialiasing)
@@ -574,15 +579,15 @@ public class Namibrot extends JPanel
         if(!gui.isDragging())
             return false;
         
-        int scale = 1;        
+        int scale = 1;
         if(antialiasing)
             scale = 2;
 
         double deltax = -gui.getDragX() * scale;
         double deltay = -gui.getDragY() * scale;
         
-        xOffset += zoomRatio * 3 * xRatio * (deltax / width);
-        yOffset += zoomRatio * 3 * (deltay / height);
+        rOffset += zoomRatio * 3 * xRatio * (deltax / width);
+        iOffset += zoomRatio * 3 * (deltay / height);
 
         final boolean[] bfront = cached;
         final boolean[] bback = mask;
@@ -651,16 +656,35 @@ public class Namibrot extends JPanel
         return true;
     }
     
-    public double getCenterX()
+    public void setReal(double r)
     {
-        return xOffset;
+        rOffset = r;
+        forceRefresh();
+    }
+    
+    public double getReal()
+    {
+        return rOffset;
     }
 
-    public double getCenterY()
+    public void setImaginary(double i)
     {
-        return yOffset;
+        iOffset = i;
+        forceRefresh();
+    }
+    
+    public double getImaginary()
+    {
+        return iOffset;
     }
 
+    public void setZoom(int z)
+    {
+        zoom = z;
+        zoomRatio = Math.pow(2, -zoom);
+        forceRefresh();
+    }    
+    
     public int getZoom()
     {
         return zoom;
