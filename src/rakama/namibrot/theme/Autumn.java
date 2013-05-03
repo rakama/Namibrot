@@ -1,4 +1,4 @@
-package com.github.rakama.nami.theme;
+package rakama.namibrot.theme;
 
 public class Autumn extends Theme
 {

@@ -14,19 +14,19 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-package com.github.rakama.nami.util;
+package rakama.namibrot.util;
 
 import java.nio.BufferOverflowException;
 import java.nio.BufferUnderflowException;
 
-public final class CircularBufferInt
+public final class CircularBufferDouble
 {
-    private final int[] buffer;
+    private final double[] buffer;
     private int start, end, size;
 
-    public CircularBufferInt(int capacity)
+    public CircularBufferDouble(int capacity)
     {
-        buffer = new int[capacity];
+        buffer = new double[capacity];
     }
 
     public void clear()
@@ -34,7 +34,7 @@ public final class CircularBufferInt
         size = start = end = 0;
     }
     
-    public void push(int val)
+    public void push(double val)
     {
         if(size == buffer.length)
             throw new BufferOverflowException();
@@ -48,14 +48,14 @@ public final class CircularBufferInt
         size++;
     }
 
-    public int poll()
+    public double poll()
     {
         if(start == end)
             throw new BufferUnderflowException();
 
         size--;
 
-        int val = buffer[start];
+        double val = buffer[start];
         start++;
 
         if(start >= buffer.length)
@@ -64,7 +64,7 @@ public final class CircularBufferInt
         return val;
     }
     
-    protected void copy(CircularBufferInt src)
+    protected void copy(CircularBufferDouble src)
     {
         if(src.capacity() != capacity())
             throw new IllegalArgumentException();

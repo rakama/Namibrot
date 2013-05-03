@@ -1,16 +1,20 @@
-package com.github.rakama.nami;
+package rakama.namibrot;
 
 public class ThreadManager
 {
+    static int draw_priority = Thread.NORM_PRIORITY;
+    
+    NamiGUI gui;
     Namibrot nami;
     RenderContext[] context;
     RepaintLoop repaint;
     DrawLoop draw;
     int numThreads;
     
-    public ThreadManager(Namibrot nami)
+    public ThreadManager(NamiGUI gui)
     {
-        this.nami = nami;        
+        this.gui = gui;  
+        this.nami = gui.getNamibrot();        
         numThreads = Runtime.getRuntime().availableProcessors() - 1;      
         numThreads = Math.max(1, numThreads);
     }
@@ -43,7 +47,6 @@ public class ThreadManager
         {
             repaint = new RepaintLoop();
             Thread t = new Thread(repaint, "Repaint-Loop");
-            t.setPriority(Thread.NORM_PRIORITY+1);
             t.start();
         }
     }
@@ -54,6 +57,7 @@ public class ThreadManager
         {
             draw = new DrawLoop();
             Thread t = new Thread(draw, "Draw-Loop");
+            t.setPriority(draw_priority);
             t.start();
         }
     }
@@ -91,10 +95,10 @@ public class ThreadManager
                     boolean update = false;
                     
                     update |= nami.getTheme().update((int)(time - prevPaint));
-                    update |= nami.getGUI().update((int)(time - prevPaint));
+                    update |= gui.update((int)(time - prevPaint));
                     
                     if(update)
-                        nami.repaint();
+                        gui.repaint();
                     
                     prevPaint = time;
                 }
@@ -136,28 +140,28 @@ public class ThreadManager
                     switch(numThreads)
                     {
                     default:
-                        thread16();
-                        break;
+//                        thread16();
+//                        break;
                     case 15:
                     case 14:
                     case 13:
                     case 12:
-                        thread12();
-                        break;
+//                        thread12();
+//                        break;
                     case 11:
                     case 10:
                     case 9:
                     case 8:
-                        thread8();
-                        break;
+//                        thread8();
+//                        break;
                     case 7:
                     case 6:
-                        thread6();
-                        break;
+//                        thread6();
+//                        break;
                     case 5:
                     case 4:
-                        thread4();
-                        break;
+//                        thread4();
+//                        break;
                     case 3:
                         thread3();
                         break;
@@ -166,8 +170,8 @@ public class ThreadManager
                         break;
                     }
                 }
-                
-                while(!isModified())
+
+                while(!nami.applyChanges())
                     sleep(5);
                 
                 while(isRendering())
@@ -182,34 +186,12 @@ public class ThreadManager
             interrupt = true;
         }
         
-        private boolean isModified()
-        {
-            boolean modified = false;
-
-            synchronized(nami)
-            {
-                if(nami.getGUI().isZooming())
-                    modified |= nami.applyZoom();
-    
-                if(nami.getGUI().isDragging())
-                    modified |= nami.applyTranslate();
-
-                if(nami.isResized())
-                    modified |= nami.applyResize();
-                
-                if(nami.isThemeChanged())
-                    modified |= nami.applyThemeChange();
-            }
-
-            return modified;
-        }
-        
         private void thread2()
         {            
             initThreads(2);
             DrawTask[] task = new DrawTask[2];
-            task[0] = new DrawTask(context[0], 2, 1, 0, 0, 1, 0);
-            task[1] = new DrawTask(context[1], 2, 1, 1, 0, 1, 1);
+            task[0] = new DrawTask(context[0], 2, 1, 0, 0, 1);
+            task[1] = new DrawTask(context[1], 2, 1, 1, 0, 1);
             if(nami.getAntialiasing())
                 executeScaled(task);
             else
@@ -220,9 +202,9 @@ public class ThreadManager
         {
             initThreads(3);
             DrawTask[] task = new DrawTask[3];            
-            task[0] = new DrawTask(context[0], 3, 1, 0, 0, 1, 0);
-            task[1] = new DrawTask(context[1], 3, 1, 1, 0, 1, 1);
-            task[2] = new DrawTask(context[2], 3, 1, 2, 0, 1, 2);
+            task[0] = new DrawTask(context[0], 3, 1, 0, 0, 1);
+            task[1] = new DrawTask(context[1], 3, 1, 1, 0, 1);
+            task[2] = new DrawTask(context[2], 3, 1, 2, 0, 1);
             if(nami.getAntialiasing())
                 executeScaled(task);
             else
@@ -233,10 +215,10 @@ public class ThreadManager
         {
             initThreads(4);
             DrawTask[] task = new DrawTask[4];           
-            task[0] = new DrawTask(context[0], 2, 2, 0, 0, 1, 0);
-            task[1] = new DrawTask(context[1], 2, 2, 1, 0, 1, 1);
-            task[2] = new DrawTask(context[2], 2, 2, 0, 1, 1, 2);
-            task[3] = new DrawTask(context[3], 2, 2, 1, 1, 1, 3);
+            task[0] = new DrawTask(context[0], 2, 2, 0, 0, 1);
+            task[1] = new DrawTask(context[1], 2, 2, 1, 0, 1);
+            task[2] = new DrawTask(context[2], 2, 2, 0, 1, 1);
+            task[3] = new DrawTask(context[3], 2, 2, 1, 1, 1);
             if(nami.getAntialiasing())
                 executeScaled(task);
             else
@@ -247,12 +229,12 @@ public class ThreadManager
         {
             initThreads(6);
             DrawTask[] task = new DrawTask[6];           
-            task[0] = new DrawTask(context[0], 3, 2, 0, 0, 1, 0);
-            task[1] = new DrawTask(context[1], 3, 2, 1, 0, 1, 1);
-            task[2] = new DrawTask(context[2], 3, 2, 2, 0, 1, 2);
-            task[3] = new DrawTask(context[3], 3, 2, 0, 1, 1, 3);
-            task[4] = new DrawTask(context[4], 3, 2, 1, 1, 1, 4);
-            task[5] = new DrawTask(context[5], 3, 2, 2, 1, 1, 5);
+            task[0] = new DrawTask(context[0], 3, 2, 0, 0, 1);
+            task[1] = new DrawTask(context[1], 3, 2, 1, 0, 1);
+            task[2] = new DrawTask(context[2], 3, 2, 2, 0, 1);
+            task[3] = new DrawTask(context[3], 3, 2, 0, 1, 1);
+            task[4] = new DrawTask(context[4], 3, 2, 1, 1, 1);
+            task[5] = new DrawTask(context[5], 3, 2, 2, 1, 1);
             if(nami.getAntialiasing())
                 executeScaled(task);
             else
@@ -263,14 +245,14 @@ public class ThreadManager
         {
             initThreads(8);
             DrawTask[] task = new DrawTask[8];           
-            task[0] = new DrawTask(context[0], 4, 2, 0, 0, 1, 0);
-            task[1] = new DrawTask(context[1], 4, 2, 1, 0, 1, 1);
-            task[2] = new DrawTask(context[2], 4, 2, 2, 0, 1, 2);
-            task[3] = new DrawTask(context[3], 4, 2, 3, 0, 1, 3);
-            task[4] = new DrawTask(context[4], 4, 2, 0, 1, 1, 4);
-            task[5] = new DrawTask(context[5], 4, 2, 1, 1, 1, 5);
-            task[6] = new DrawTask(context[6], 4, 2, 2, 1, 1, 6);
-            task[7] = new DrawTask(context[7], 4, 2, 3, 1, 1, 7);
+            task[0] = new DrawTask(context[0], 4, 2, 0, 0, 1);
+            task[1] = new DrawTask(context[1], 4, 2, 1, 0, 1);
+            task[2] = new DrawTask(context[2], 4, 2, 2, 0, 1);
+            task[3] = new DrawTask(context[3], 4, 2, 3, 0, 1);
+            task[4] = new DrawTask(context[4], 4, 2, 0, 1, 1);
+            task[5] = new DrawTask(context[5], 4, 2, 1, 1, 1);
+            task[6] = new DrawTask(context[6], 4, 2, 2, 1, 1);
+            task[7] = new DrawTask(context[7], 4, 2, 3, 1, 1);
             if(nami.getAntialiasing())
                 executeScaled(task);
             else
@@ -281,18 +263,18 @@ public class ThreadManager
         {
             initThreads(12);
             DrawTask[] task = new DrawTask[12];            
-            task[0] = new DrawTask(context[0], 3, 4, 0, 0, 1, 0);
-            task[1] = new DrawTask(context[1], 3, 4, 1, 0, 1, 1);
-            task[2] = new DrawTask(context[2], 3, 4, 2, 0, 1, 2);
-            task[3] = new DrawTask(context[3], 3, 4, 0, 1, 1, 3);
-            task[4] = new DrawTask(context[4], 3, 4, 1, 1, 1, 4);
-            task[5] = new DrawTask(context[5], 3, 4, 2, 1, 1, 5);
-            task[6] = new DrawTask(context[6], 3, 4, 0, 2, 1, 6);
-            task[7] = new DrawTask(context[7], 3, 4, 1, 2, 1, 7);
-            task[8] = new DrawTask(context[8], 3, 4, 2, 2, 1, 8);
-            task[9] = new DrawTask(context[9], 3, 4, 0, 3, 1, 9);
-            task[10] = new DrawTask(context[10], 3, 4, 1, 3, 1, 10);
-            task[11] = new DrawTask(context[11], 3, 4, 2, 3, 1, 11);
+            task[0] = new DrawTask(context[0], 3, 4, 0, 0, 1);
+            task[1] = new DrawTask(context[1], 3, 4, 1, 0, 1);
+            task[2] = new DrawTask(context[2], 3, 4, 2, 0, 1);
+            task[3] = new DrawTask(context[3], 3, 4, 0, 1, 1);
+            task[4] = new DrawTask(context[4], 3, 4, 1, 1, 1);
+            task[5] = new DrawTask(context[5], 3, 4, 2, 1, 1);
+            task[6] = new DrawTask(context[6], 3, 4, 0, 2, 1);
+            task[7] = new DrawTask(context[7], 3, 4, 1, 2, 1);
+            task[8] = new DrawTask(context[8], 3, 4, 2, 2, 1);
+            task[9] = new DrawTask(context[9], 3, 4, 0, 3, 1);
+            task[10] = new DrawTask(context[10], 3, 4, 1, 3, 1);
+            task[11] = new DrawTask(context[11], 3, 4, 2, 3, 1);
             if(nami.getAntialiasing())
                 executeScaled(task);
             else
@@ -303,22 +285,22 @@ public class ThreadManager
         {
             initThreads(16);
             DrawTask[] task = new DrawTask[16];            
-            task[0] = new DrawTask(context[0], 4, 4, 0, 0, 1, 0);
-            task[1] = new DrawTask(context[1], 4, 4, 1, 0, 1, 1);
-            task[2] = new DrawTask(context[2], 4, 4, 2, 0, 1, 2);
-            task[3] = new DrawTask(context[3], 4, 4, 3, 0, 1, 3);
-            task[4] = new DrawTask(context[4], 4, 4, 0, 1, 1, 4);
-            task[5] = new DrawTask(context[5], 4, 4, 1, 1, 1, 5);
-            task[6] = new DrawTask(context[6], 4, 4, 2, 1, 1, 6);
-            task[7] = new DrawTask(context[7], 4, 4, 3, 1, 1, 7);
-            task[8] = new DrawTask(context[8], 4, 4, 0, 2, 1, 8);
-            task[9] = new DrawTask(context[9], 4, 4, 1, 2, 1, 9);
-            task[10] = new DrawTask(context[10], 4, 4, 2, 2, 1, 10);
-            task[11] = new DrawTask(context[11], 4, 4, 3, 2, 1, 11);
-            task[12] = new DrawTask(context[12], 4, 4, 0, 3, 1, 12);
-            task[13] = new DrawTask(context[13], 4, 4, 1, 3, 1, 13);
-            task[14] = new DrawTask(context[14], 4, 4, 2, 3, 1, 14);
-            task[15] = new DrawTask(context[15], 4, 4, 3, 3, 1, 15);
+            task[0] = new DrawTask(context[0], 4, 4, 0, 0, 1);
+            task[1] = new DrawTask(context[1], 4, 4, 1, 0, 1);
+            task[2] = new DrawTask(context[2], 4, 4, 2, 0, 1);
+            task[3] = new DrawTask(context[3], 4, 4, 3, 0, 1);
+            task[4] = new DrawTask(context[4], 4, 4, 0, 1, 1);
+            task[5] = new DrawTask(context[5], 4, 4, 1, 1, 1);
+            task[6] = new DrawTask(context[6], 4, 4, 2, 1, 1);
+            task[7] = new DrawTask(context[7], 4, 4, 3, 1, 1);
+            task[8] = new DrawTask(context[8], 4, 4, 0, 2, 1);
+            task[9] = new DrawTask(context[9], 4, 4, 1, 2, 1);
+            task[10] = new DrawTask(context[10], 4, 4, 2, 2, 1);
+            task[11] = new DrawTask(context[11], 4, 4, 3, 2, 1);
+            task[12] = new DrawTask(context[12], 4, 4, 0, 3, 1);
+            task[13] = new DrawTask(context[13], 4, 4, 1, 3, 1);
+            task[14] = new DrawTask(context[14], 4, 4, 2, 3, 1);
+            task[15] = new DrawTask(context[15], 4, 4, 3, 3, 1);
             if(nami.getAntialiasing())
                 executeScaled(task);
             else
@@ -343,7 +325,10 @@ public class ThreadManager
             Thread[] thread = new Thread[task.length];
             
             for(int i=0; i<thread.length; i++)
+            {
                 thread[i] = new Thread(task[i], "Draw-" + i);
+                thread[i].setPriority(draw_priority);
+            }
             
             initThreads(thread.length);
             
@@ -391,17 +376,17 @@ public class ThreadManager
     class DrawTask implements Runnable
     {
         RenderContext context;
-        int scale, thread, bail;
+        int scale, bail;
         int skipx, skipy, offx, offy;
 
         public DrawTask(RenderContext context, int skipx, int skipy, int offx, int offy, 
-                int scale, int thread)
+                int scale)
         {
-            this(context, skipx, skipy, offx, offy, scale, thread, 0);
+            this(context, skipx, skipy, offx, offy, scale, 0);
         }
         
         public DrawTask(RenderContext context, int skipx, int skipy, int offx, int offy, 
-                int scale, int thread, int bail)
+                int scale, int bail)
         {
             this.context = context;
             this.skipx = skipx;
@@ -409,18 +394,17 @@ public class ThreadManager
             this.offx = offx;
             this.offy = offy;
             this.scale = scale;
-            this.thread = thread;
             this.bail = bail;
         }
         
         public void run()
         {
-            nami.draw(context, skipx, skipy, offx, offy, scale, thread, bail);
+            nami.draw(context, skipx, skipy, offx, offy, scale, bail);
         }
         
         public DrawTask getScaledCopy()
         {
-            return new DrawTask(context, skipx, skipy, offx, offy, scale*2, thread, nami.fastIter);
+            return new DrawTask(context, skipx, skipy, offx, offy, scale*2, nami.fastIter);
         }        
     }
     

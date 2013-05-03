@@ -1,18 +1,25 @@
-package com.github.rakama.nami.theme;
+package rakama.namibrot.theme;
 
 import java.awt.Color;
 import java.awt.Graphics2D;
+import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.awt.image.IndexColorModel;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
-import com.github.rakama.nami.Namibrot;
-import com.github.rakama.nami.fractal.Fractal;
+import rakama.namibrot.ActiveCamera;
+import rakama.namibrot.Namibrot;
+import rakama.namibrot.fractal.Fractal;
+
 
 public abstract class Theme
 {
+    protected List<String> aliases;
     protected byte[] r, g, b, a;
     private double updateRemaining;
     private double multiplier, normalizer, invNormalizer, speed;
@@ -20,6 +27,8 @@ public abstract class Theme
         
     public Theme()
     {
+        aliases = new ArrayList<String>();
+        
         r = new byte[256];
         g = new byte[256];
         b = new byte[256];
@@ -57,7 +66,7 @@ public abstract class Theme
         updateRemaining += milliseconds;
         
         if(speed == 0)
-            return false;
+            return true;
         
         double step = 33.333 / Math.abs(speed);
         
@@ -77,38 +86,32 @@ public abstract class Theme
 
     protected void cycleColors()
     {
-        byte rtemp = r[255];
-        byte gtemp = g[255];
-        byte btemp = b[255];
-        byte atemp = a[255];
-        
-        System.arraycopy(r, 1, r, 2, r.length-2);
-        System.arraycopy(g, 1, g, 2, g.length-2);
-        System.arraycopy(b, 1, b, 2, b.length-2);
-        System.arraycopy(a, 1, a, 2, a.length-2);
-
-        r[1] = rtemp;
-        g[1] = gtemp;
-        b[1] = btemp;
-        a[1] = atemp;
+        cycleColors(r);
+        cycleColors(g);
+        cycleColors(b);
+        cycleColors(a);
     }
     
     protected void cycleColorsReverse()
     {        
-        byte rtemp = r[1];
-        byte gtemp = g[1];
-        byte btemp = b[1];
-        byte atemp = a[1];
-        
-        System.arraycopy(r, 2, r, 1, r.length-2);
-        System.arraycopy(g, 2, g, 1, g.length-2);
-        System.arraycopy(b, 2, b, 1, b.length-2);
-        System.arraycopy(a, 2, a, 1, a.length-2);
+        cycleColorsReverse(r);
+        cycleColorsReverse(g);
+        cycleColorsReverse(b);
+        cycleColorsReverse(a);
+    }
 
-        r[255] = rtemp;
-        g[255] = gtemp;
-        b[255] = btemp;
-        a[255] = atemp;
+    protected void cycleColors(byte[] c)
+    {
+        byte ctemp = c[255];
+        System.arraycopy(c, 1, c, 2, c.length-2);
+        c[1] = ctemp;
+    }
+    
+    protected void cycleColorsReverse(byte[] c)
+    {        
+        byte ctemp = c[1];
+        System.arraycopy(c, 2, c, 1, c.length-2);
+        c[255] = ctemp;
     }
     
     public void setDithering(boolean enabled)
@@ -163,32 +166,63 @@ public abstract class Theme
         return normalizer;
     }
     
+    public void paint(Graphics2D g2, Namibrot nami)
+    {
+        paintBackground(g2, nami);
+        paintFractal(g2, nami);
+        paintForeground(g2, nami);
+    }
+    
     public void paintBackground(Graphics2D g2, Namibrot nami)
     {
-        g2.setColor(Color.BLACK);
-        g2.fillRect(0, 0, nami.getWidth(), nami.getHeight());        
+        Rectangle bounds = g2.getClipBounds();   
+        g2.setColor(new Color(0xFF & r[0], 0xFF & g[0], 0xFF & b[0]));
+        g2.fill(bounds);    
     }
 
     public void paintFractal(Graphics2D g2, Namibrot nami)
     {
+        Rectangle bounds = g2.getClipBounds();    
+        
+        int width = (int)bounds.getWidth();
+        int height = (int)bounds.getHeight();
+        
+        ActiveCamera gui = nami.getActiveCamera();
+        
         AffineTransform identity = g2.getTransform();    
-        g2.translate(nami.getGUI().getDragX(), nami.getGUI().getDragY());
+        g2.translate(gui.getDragX(), gui.getDragY());
         
         if(nami.getAntialiasing())
         {
             g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, 
                     RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-            g2.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION, 
-                    RenderingHints.VALUE_ALPHA_INTERPOLATION_SPEED);
-            g2.setRenderingHint(RenderingHints.KEY_RENDERING, 
-                    RenderingHints.VALUE_RENDER_SPEED);
             g2.scale(0.5, 0.5);
-            g2.translate(nami.getWidth() >> 1, nami.getHeight() >> 1);
+            g2.translate(width / 2, height / 2);
         }
+        else
+        {
+            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                        RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        }
+        
+        g2.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION,
+                RenderingHints.VALUE_ALPHA_INTERPOLATION_SPEED);
+        g2.setRenderingHint(RenderingHints.KEY_RENDERING, 
+                RenderingHints.VALUE_RENDER_SPEED);
 
-        IndexColorModel icm = new IndexColorModel(8, 256, r, g, b);
-        BufferedImage current1 = new BufferedImage(icm, nami.getImage().getRaster(), true, null);
-        g2.drawImage(current1, nami.getImageX(), nami.getImageY(), null);        
+        IndexColorModel icm;
+        
+        if(alpha)
+            icm = new IndexColorModel(8, 256, getRed(), getGreen(), getBlue(), getAlpha());
+        else
+            icm = new IndexColorModel(8, 256, getRed(), getGreen(), getBlue());
+
+        int imageX = (width / 2) - (nami.getImageWidth() / 2);
+        int imageY = (height / 2) - (nami.getImageHeight() / 2);
+        
+        BufferedImage img = nami.getImage();        
+        BufferedImage current1 = new BufferedImage(icm, img.getRaster(), false, null);
+        g2.drawImage(current1, imageX, imageY, null);        
         g2.setTransform(identity);
     }
     
@@ -200,12 +234,12 @@ public abstract class Theme
     public int getColor(Fractal fractal)
     {              
         double val = getNormalizedValue(fractal);      
-        return getColorFromValue(Math.abs((val * multiplier) % 1));        
+        return getColorFromValue(Math.abs((val * multiplier)));        
     }
     
     protected final int getColorFromValue(double val)
     {        
-        double cfloat = val * 255;        
+        double cfloat = (val % 1) * 255;        
         int color = (int)Math.floor(cfloat);        
         if(dithering && cfloat - color > Math.random())
             color = (color + 1) % 255;   
@@ -215,7 +249,7 @@ public abstract class Theme
             return 255 - color;
     }
 
-    private final double getNormalizedValue(Fractal fractal)
+    protected final double getNormalizedValue(Fractal fractal)
     {
         double val = fractal.getIterations() + fractal.getSmooth();
         return Math.log(val) / invNormalizer;
@@ -243,6 +277,12 @@ public abstract class Theme
     
     public String getName()
     {
-        return this.getClass().getName();
+        String[] split = this.getClass().getName().split("\\.");
+        return split[split.length-1];
+    }
+    
+    public List<String> getAliases()
+    {
+        return Collections.unmodifiableList(aliases);
     }
 }

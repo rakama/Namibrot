@@ -1,4 +1,4 @@
-package com.github.rakama.nami;
+package rakama.namibrot;
 
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
@@ -11,22 +11,26 @@ import javax.jnlp.ServiceManager;
 import javax.jnlp.UnavailableServiceException;
 import javax.swing.JApplet;
 
-import com.github.rakama.nami.theme.Theme;
+import rakama.namibrot.Namibrot.Mode;
+import rakama.namibrot.theme.Theme;
+
 
 @SuppressWarnings("serial")
 public class NamiApplet extends JApplet
 {
+    NamiGUI gui;
     Namibrot nami;
     ComponentListener resize;
     String url;
     
     public void init()
     {
-        if(nami != null)
+        if(gui != null)
             return;
 
-        nami = new Namibrot(this, this.getWidth(), this.getHeight());        
-        getContentPane().add(nami);
+        gui = new NamiGUI(this, this.getWidth(), this.getHeight());        
+        nami = gui.getNamibrot();
+        getContentPane().add(gui);
         
         resize = new ComponentAdapter() {
             public void componentResized(ComponentEvent e) {
@@ -35,11 +39,25 @@ public class NamiApplet extends JApplet
         double r = getValue(getParameter("r"));
         double i = getValue(getParameter("i"));
         double z = getValue(getParameter("z"));
-        Theme t = nami.getGUI().getTheme(getParameter("t"));
+        double rj = getValue(getParameter("rj"));
+        double ij = getValue(getParameter("ij"));
+        Theme t = gui.getTheme(getParameter("t"));
         url = getParameter("url");
         if(url != null)
             url = url.split("[\\?\\#]+")[0];
+        
+        if(!Double.isNaN(rj))
+        {
+            nami.setMode(Mode.Julia);
+            nami.setJuliaReal(rj);
+        }
 
+        if(!Double.isNaN(ij))
+        {
+            nami.setMode(Mode.Julia);
+            nami.setJuliaImaginary(ij);
+        }
+        
         if(!Double.isNaN(r))
             nami.setReal(r);
 
@@ -48,7 +66,7 @@ public class NamiApplet extends JApplet
 
         if(!Double.isNaN(z))
             nami.setZoom((int)z);
-        
+
         if(t != null)
             nami.setTheme(t);
     }
@@ -70,7 +88,7 @@ public class NamiApplet extends JApplet
         if(nami == null)
             return;
         
-        nami.init();        
+        gui.init();        
         addComponentListener(resize);
         nami.forceRefresh();     
     }
@@ -80,7 +98,7 @@ public class NamiApplet extends JApplet
         if(nami == null)
             return;
 
-        nami.stop();
+        gui.stop();
         nami.interrupt();   
         removeComponentListener(resize);
     }
@@ -90,7 +108,7 @@ public class NamiApplet extends JApplet
         if(nami == null)
             return;
         
-        nami.stop();
+        gui.stop();
         nami.interrupt();
         nami = null;
     }
@@ -110,6 +128,19 @@ public class NamiApplet extends JApplet
         builder.append(url);
         builder.append("?");
         
+        if(nami.getMode() == Mode.Julia)
+        {
+            builder.append("rj=");
+            builder.append(nami.getJuliaReal());
+            
+            builder.append("&");
+
+            builder.append("ij=");
+            builder.append(nami.getJuliaImaginary());
+            
+            builder.append("&");
+        }
+        
         builder.append("r=");
         builder.append(nami.getReal());
         
@@ -122,6 +153,11 @@ public class NamiApplet extends JApplet
 
         builder.append("z=");
         builder.append(nami.getZoom());
+
+        builder.append("&");
+
+        builder.append("t=");
+        builder.append(nami.getTheme().getName().toLowerCase());
         
         StringSelection str = new StringSelection(builder.toString());
         

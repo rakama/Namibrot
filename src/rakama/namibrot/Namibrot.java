@@ -1,54 +1,41 @@
-package com.github.rakama.nami;
+package rakama.namibrot;
 
-import java.awt.Component;
-import java.awt.Dimension;
-import java.awt.EventQueue;
-import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.Toolkit;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.awt.image.IndexColorModel;
 import java.util.Arrays;
 
-import javax.swing.JApplet;
 import javax.swing.JFrame;
-import javax.swing.JPanel;
-import javax.swing.RootPaneContainer;
 
-import com.github.rakama.nami.fractal.Fractal;
-import com.github.rakama.nami.theme.Autumn;
-import com.github.rakama.nami.theme.Bars;
-import com.github.rakama.nami.theme.Bubblegum;
-import com.github.rakama.nami.theme.Spots;
-import com.github.rakama.nami.theme.Theme;
-import com.github.rakama.nami.util.CircularBufferDouble;
-import com.github.rakama.nami.util.CircularBufferInt;
+import rakama.namibrot.fractal.Fractal;
+import rakama.namibrot.theme.Autumn;
+import rakama.namibrot.theme.Theme;
+import rakama.namibrot.util.CircularBufferDouble;
+import rakama.namibrot.util.CircularBufferInt;
 
-@SuppressWarnings("serial")
-public class Namibrot extends JPanel
+
+public class Namibrot
 {
     // TODO: do "fill with black" if # of updated pixels per cycle drops
     // below a particular threshold
     // OR when we start drawing over a point that was black before
     // TODO: save "high range" buffer for fast slope switching
     // TODO: separate Namibrot from its JPanel
-    
-    int zoom, width, height, resizeWidth, resizeHeight, maxIter, fastIter;
-    double zoomRatio, rOffset, iOffset, xRatio;
-    private boolean antialiasing, isInterrupted, sizeChanged, themeChanged;    
-    BufferedImage front, back;
-    boolean[] mask, cached;
 
-    Component parent;
-    JFrame fullscreen;
-    ThreadManager manager;
-    NamiGUI gui;
-    Theme theme;
+    enum Mode {Julia, Mandelbrot};
+    
+    int zoom, zmTemp, zjTemp, width, height, resizeWidth, resizeHeight, maxIter, fastIter;
+    private double zoomRatio, rOffset, iOffset, rJulia, iJulia, rjTemp, ijTemp, xRatio;
+    private boolean antialiasing, isInterrupted, sizeChanged, themeChanged;    
+    private BufferedImage front, back;
+    private boolean[] mask, cached;
+
+    private ActiveCamera camera;
+    private Theme theme, oldTheme;
+    private Mode mode;
     
     public static void main(String[] args)
     {
@@ -58,7 +45,7 @@ public class Namibrot extends JPanel
         final JFrame frame = new JFrame("Namibrot");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         
-        final Namibrot nami = new Namibrot(frame, width, height);
+        final NamiGUI nami = new NamiGUI(frame, width, height);
         frame.getContentPane().add(nami);
 
         frame.setSize(width, height);
@@ -66,106 +53,48 @@ public class Namibrot extends JPanel
         frame.setVisible(true);
         frame.addComponentListener(new ComponentAdapter() {
             public void componentResized(ComponentEvent e) {
-                nami.requestResize(frame.getWidth(), frame.getHeight());}});
+                nami.getNamibrot().requestResize(frame.getWidth(), frame.getHeight());}});
         
         nami.init();
     }
 
-    public Namibrot(int w, int h)
+    public Namibrot(ActiveCamera cam, int w, int h)
     {  
-        this(null, w, h);
-    }
-    
-    public Namibrot(Component parent, int w, int h)
-    {  
-        this.parent = parent;
-
-        setFocusable(true);
-        
-        gui = new NamiGUI(this);
-        manager = new ThreadManager(this);
-
-        gui.addTheme(new Bubblegum());
-        gui.addTheme(new Spots());
-        gui.addTheme(new Bars());
-        gui.addTheme(new Autumn());
-        
-        if(manager.getNumThreads() == 1 || (parent instanceof JApplet))
-            antialiasing = false;
-        else
-            antialiasing = true;
-
+        camera = cam;
+        mode = Mode.Mandelbrot;
         zoomRatio = 1;
         rOffset = -0.75;
-        theme = gui.getThemes()[0];
+        theme = new Autumn();
         maxIter = 1 << 17;
-        fastIter = 1 << 10;
+        fastIter = 1 << 12;
         
         requestResize(w, h);
         applyResize();        
-    } 
-    
-    protected void init()
-    {
-        manager.startRepaintLoop();
-        manager.startDrawLoop();
-        
-        addMouseWheelListener(gui); 
-        addMouseMotionListener(gui);   
-        addMouseListener(gui);
-        addKeyListener(gui);
-        
-        if(parent != null && parent instanceof JFrame)
-            parent.addKeyListener(gui);
     }
     
-    protected void stop()
+    public void paint(Graphics2D g2)
     {
-        manager.stop();
-
-        removeMouseWheelListener(gui); 
-        removeMouseMotionListener(gui);   
-        removeMouseListener(gui);
-        removeKeyListener(gui);
-        
-        if(parent != null)
-            parent.removeKeyListener(gui);
+        getTheme().paint(g2, this);
     }
     
-    public Component getParentComponent()
-    {
-        return parent;
-    }
-    
-    public void paint(Graphics gx)
-    {
-        Graphics2D g2 = (Graphics2D)gx;
-        theme.paintBackground(g2, this);
-        theme.paintFractal(g2, this);
-        theme.paintForeground(g2, this);
-        gui.paint(g2);
-    }
-
     protected void draw(RenderContext context)
     {
-        draw(context, 1, 1, 0, 0, 1, 0, 0);
+        draw(context, 1, 1, 0, 0, 1, 0);
     }
 
-    protected void draw(RenderContext context, int skipx, int skipy, int offx, int offy, int scale, 
-                    int t, int bail)
+    protected void draw(RenderContext context, int skipx, int skipy, int offx, int offy, int scale, int bail)
     {
-        draw(context, 0, 0, width, height, skipx, skipy, offx, offy, scale, t, bail);
+        draw(context, 0, 0, width, height, skipx, skipy, offx, offy, scale, bail);
     }
     
     protected void draw(RenderContext context, int x0, int y0, int w0, int h0, int skipx, int skipy, 
-                     int offx, int offy, int scale, int t, int bail)
+                     int offx, int offy, int scale, int bail)
     {
         if(context == null || context.rendering)
             return;
         
         context.rendering = true;
-        
-        
+                
         CircularBufferInt queue = context.queue;
         CircularBufferInt pending = context.pending;
         
@@ -185,7 +114,7 @@ public class Namibrot extends JPanel
         
         final byte[] cfront = ((DataBufferByte)front.getRaster().getDataBuffer()).getData();
         
-        int samples = (int)Math.sqrt(width * height);
+        int samples = (int)(width * height / 1000.0);
         for(int i=0; i<samples; i++)
         {
             int init_x = x0 + (int)((Math.random() * (w0 - offx - 2)) / skipx) * skipx + offx;
@@ -198,12 +127,13 @@ public class Namibrot extends JPanel
             pending.push(init_index);
             mask[init_index] = true;
         }
-
+        
         double base = 1.25;
         int pow = 16;
         int previter = -1;
         int iter = (int)Math.ceil(Math.pow(base, pow));
 
+        final boolean julia = mode == Mode.Julia;
         final boolean scaled = scale > 1;
         final int xmin = x0 + skipx;
         final int ymin = y0 + skipy;
@@ -213,7 +143,7 @@ public class Namibrot extends JPanel
         final int yieldtime = 100;
         
         long prevtime = System.currentTimeMillis() + (int)(Math.random() * yieldtime);
-        
+
         while(!pending.isEmpty() && !isInterrupted)
         {
             CircularBufferInt swap = queue;
@@ -257,10 +187,20 @@ public class Namibrot extends JPanel
                 {
                     int iteration;
                     
-                    if(hasPartial)
-                        iteration = fractal.getValueOpt(r0, i0, xz, yz, previter, iter);
+                    if(julia)
+                    {
+                        if(hasPartial)
+                            iteration = fractal.getValueOpt(r0, i0, rJulia, iJulia, previter, iter);
+                        else
+                            iteration = fractal.getValueOpt(xz, yz, rJulia, iJulia, 0, iter);
+                    }
                     else
-                        iteration = fractal.getValueOpt(0, 0, xz, yz, 0, iter);
+                    {
+                        if(hasPartial)
+                            iteration = fractal.getValueOpt(r0, i0, xz, yz, previter, iter);
+                        else
+                            iteration = fractal.getValueOpt(0, 0, xz, yz, 0, iter);
+                    }
                     
                     if(iteration >= iter && iter < maxIter)
                     {
@@ -382,18 +322,21 @@ public class Namibrot extends JPanel
         Arrays.fill(cached, false);
         Arrays.fill(mask, false);
         themeChanged = false;
+
+        oldTheme.onDeactivate(this);        
+        theme.onActivate(this);
         
         return true;
     }
     
     protected boolean applyZoom()
-    {        
-        if(!gui.isZooming())
+    {
+        if(!camera.isZooming())
             return false;
         
-        double x = gui.getZoomX();
-        double y = gui.getZoomY();
-        double z = gui.getZoomMagnitude();
+        double x = camera.getZoomX();
+        double y = camera.getZoomY();
+        double z = camera.getZoomMagnitude();
         int dest_x, dest_y;
         double zscale;
         
@@ -570,22 +513,29 @@ public class Namibrot extends JPanel
         back = front;
         front = temp;
         
-        gui.clearZoom();
+        camera.clearZoom();
         return true;
     }
         
     protected boolean applyTranslate()
     {
-        if(!gui.isDragging())
+        if(!camera.isDragging())
             return false;
         
         int scale = 1;
         if(antialiasing)
             scale = 2;
-
-        double deltax = -gui.getDragX() * scale;
-        double deltay = -gui.getDragY() * scale;
         
+        if(mode == Mode.Mandelbrot)
+        {
+            rjTemp = 0;
+            ijTemp = 0;
+            zjTemp = 0;
+        }
+
+        double deltax = -camera.getDragX() * scale;
+        double deltay = -camera.getDragY() * scale;
+                
         rOffset += zoomRatio * 3 * xRatio * (deltax / width);
         iOffset += zoomRatio * 3 * (deltay / height);
 
@@ -651,9 +601,38 @@ public class Namibrot extends JPanel
         back = front;
         front = temp;
         
-        gui.clearDrag();
+        camera.clearDrag();
         
         return true;
+    }
+
+    public synchronized boolean applyChanges()
+    {
+        boolean modified = false;
+
+        if(getActiveCamera().isZooming())
+            modified |= applyZoom();
+
+        if(getActiveCamera().isDragging())
+        {
+            synchronized(getActiveCamera())
+            {
+                modified |= applyTranslate();
+            }
+        }
+        
+        if(isResized())
+            modified |= applyResize();
+        
+        if(isThemeChanged())
+            modified |= applyThemeChange();
+
+        return modified;
+    }
+    
+    public ActiveCamera getActiveCamera()
+    {
+        return camera;
     }
     
     public void setReal(double r)
@@ -667,6 +646,16 @@ public class Namibrot extends JPanel
         return rOffset;
     }
 
+    public double getJuliaReal()
+    {
+        return rJulia;
+    }
+
+    public void setJuliaReal(double r)
+    {
+        rJulia = r;
+    }
+
     public void setImaginary(double i)
     {
         iOffset = i;
@@ -676,6 +665,16 @@ public class Namibrot extends JPanel
     public double getImaginary()
     {
         return iOffset;
+    }
+
+    public double getJuliaImaginary()
+    {
+        return iJulia;
+    }
+
+    public void setJuliaImaginary(double i)
+    {
+        iJulia = i;
     }
 
     public void setZoom(int z)
@@ -695,19 +694,47 @@ public class Namibrot extends JPanel
         return 1 / zoomRatio;
     }
     
-    public ThreadManager getRenderManager()
+    public void setMode(Mode mode)
     {
-        return manager;
+        if(this.mode == mode)
+            return;
+        
+        if(mode == Mode.Julia && this.mode == Mode.Mandelbrot)
+        {
+            this.mode = mode;
+            rJulia = rOffset;
+            iJulia = iOffset;
+            rOffset = rjTemp;
+            iOffset = ijTemp;
+            zmTemp = zoom;
+            setZoom(zjTemp);
+        }
+        else if(this.mode == Mode.Julia && mode == Mode.Mandelbrot)
+        {
+            this.mode = mode;
+            rjTemp = rOffset;
+            ijTemp = iOffset;
+            zjTemp = zoom;
+            rOffset = rJulia;
+            iOffset = iJulia;
+            setZoom(zmTemp);
+        }
+        
+        this.mode = mode;
     }
     
-    public NamiGUI getGUI()
+    public Mode getMode()
     {
-        return gui;
+        return mode;
     }
         
     public void setAntialiasing(boolean enabled)
     {
+        if(antialiasing == enabled)
+            return;
+        
         antialiasing = enabled;
+        forceRefresh();
     }
     
     public boolean getAntialiasing()
@@ -723,11 +750,10 @@ public class Namibrot extends JPanel
         if(this.theme == theme)
             return;
         
-        this.theme.onDeactivate(this);
+        oldTheme = this.theme;
         this.theme = theme;
         themeChanged = true;
-        isInterrupted = true;        
-        theme.onActivate(this);
+        isInterrupted = true;
     }
         
     public Theme getTheme()
@@ -738,16 +764,6 @@ public class Namibrot extends JPanel
     public BufferedImage getImage()
     {
         return front;
-    }
-
-    public int getImageX()
-    {
-        return (getWidth() >> 1) - (width >> 1);
-    }
-    
-    public int getImageY()
-    {
-        return (getHeight() >> 1) - (height >> 1);
     }
     
     public int getImageWidth()
@@ -760,62 +776,9 @@ public class Namibrot extends JPanel
         return height;
     }
     
-    public boolean isFullscreen()
+    public double getRatioX()
     {
-        return fullscreen != null;
-    }
-    
-    public void setFullscreen(boolean enabled)
-    {
-        if(parent == null || !(parent instanceof JFrame))
-            return;
-
-        if(enabled && !isFullscreen())
-        {
-            if(parent instanceof RootPaneContainer)
-            {
-                RootPaneContainer pframe = (RootPaneContainer)parent;
-                pframe.getContentPane().removeAll();
-                parent.setVisible(false);
-            }
-            
-            fullscreen = new JFrame();
-            fullscreen.getContentPane().add(this);
-            fullscreen.addWindowListener(new WindowAdapter(){
-                public void windowClosed(WindowEvent e){setFullscreen(false);}
-                public void windowDeactivated(WindowEvent e){setFullscreen(false);}
-                public void windowIconified(WindowEvent arg0){setFullscreen(false);}});
-            
-            Dimension size = Toolkit.getDefaultToolkit().getScreenSize();
-            setBounds(0, 0, size.width, size.height);
-            fullscreen.setSize(size.width, size.height);
-            fullscreen.setUndecorated(true);
-            fullscreen.setVisible(true);
-            fullscreen.addKeyListener(gui);
-
-            EventQueue.invokeLater(new Runnable() {
-                public void run() {
-                    if(fullscreen!=null)
-                        fullscreen.toFront();}});
-            
-            requestResize(size.width, size.height);
-        }
-        else if(!enabled && isFullscreen())
-        {
-            fullscreen.getContentPane().removeAll();
-            fullscreen.setVisible(false);
-            fullscreen.removeKeyListener(gui);
-            fullscreen = null;
-            
-            RootPaneContainer pframe = (RootPaneContainer)parent;
-            pframe.getContentPane().add(this);
-            parent.setVisible(true);
-            
-            EventQueue.invokeLater(new Runnable() {
-                public void run() {((JFrame)parent).toFront();}});
-            
-            requestResize(parent.getWidth(), parent.getHeight());
-        }
+        return xRatio;
     }
     
     protected void requestResize(int w, int h)
@@ -843,8 +806,6 @@ public class Namibrot extends JPanel
 
     public void forceRefresh()
     {
-        resizeWidth = getWidth();
-        resizeHeight = getHeight();
         sizeChanged = true;
         isInterrupted = true;
     }

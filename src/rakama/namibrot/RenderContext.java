@@ -1,8 +1,8 @@
-package com.github.rakama.nami;
+package rakama.namibrot;
 
-import com.github.rakama.nami.fractal.Fractal;
-import com.github.rakama.nami.util.CircularBufferDouble;
-import com.github.rakama.nami.util.CircularBufferInt;
+import rakama.namibrot.fractal.Fractal;
+import rakama.namibrot.util.CircularBufferDouble;
+import rakama.namibrot.util.CircularBufferInt;
 
 public class RenderContext
 {
